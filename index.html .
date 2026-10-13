@@ -1,0 +1,227 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#050914">
+  <title>VEIGA | Assistente Pessoal</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #050914;
+      color: #eafaff;
+      font-family: Arial, sans-serif;
+    }
+    header {
+      padding: 24px 18px;
+      border-bottom: 1px solid #123c50;
+      text-align: center;
+    }
+    h1 {
+      color: #00e5ff;
+      letter-spacing: 8px;
+      margin-bottom: 8px;
+    }
+    .status { color: #76dce8; font-size: 13px; }
+    main {
+      max-width: 650px;
+      margin: auto;
+      padding: 24px 16px;
+    }
+    .panel {
+      background: #0b1525;
+      border: 1px solid #17435a;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    button, input {
+      padding: 13px;
+      border-radius: 9px;
+      border: 1px solid #087d9a;
+      font-size: 15px;
+    }
+    button {
+      background: #07374a;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:active { background: #08617a; }
+    input {
+      width: 100%;
+      background: #050914;
+      color: white;
+      margin: 8px 0;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    #resposta {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      color: #b8eaf4;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>VEIGA</h1>
+    <div class="status">● SISTEMA INICIALIZADO</div>
+    <p>Seu assistente pessoal</p>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2 id="saudacao">Olá! Sou o VEIGA.</h2>
+      <p id="hora"></p>
+      <p>Como posso ajudar você hoje?</p>
+    </section>
+
+    <section class="panel">
+      <h3>Assistente</h3>
+      <p id="resposta">Estou pronto para receber seu comando.</p>
+      <input id="pergunta" placeholder="Digite seu comando...">
+      <div class="actions">
+        <button onclick="responder()">Enviar</button>
+        <button onclick="falar()">🎙️ Falar</button>
+        <button onclick="ouvirResposta()">🔊 Ouvir</button>
+      </div>
+      <p class="status">Versão inicial: ainda sem conexão com IA.</p>
+    </section>
+
+    <section class="panel">
+      <h3>Agenda rápida</h3>
+      <input id="tarefa" placeholder="Qual tarefa deseja lembrar?">
+      <button onclick="salvarTarefa()">Salvar tarefa</button>
+      <ul id="lista"></ul>
+    </section>
+
+    <section class="panel">
+      <h3>Localização</h3>
+      <button onclick="localizar()">Obter minha localização</button>
+      <p id="local">Nenhuma localização solicitada.</p>
+    </section>
+  </main>
+
+  <script>
+    const $ = id => document.getElementById(id);
+
+    function atualizarHora() {
+      $("hora").textContent =
+        new Date().toLocaleString("pt-BR");
+    }
+    atualizarHora();
+    setInterval(atualizarHora, 1000);
+
+    function responder() {
+      const texto = $("pergunta").value.trim();
+      if (!texto) return;
+      $("resposta").textContent =
+        "Recebi seu comando: " + texto +
+        "\nA conexão com a inteligência artificial será configurada na próxima etapa.";
+    }
+
+    function falar() {
+      const SpeechRecognition =
+        window.SpeechRecognition ||
+        window.webkitSpeechRecognition;
+
+      if (!SpeechRecognition) {
+        $("resposta").textContent =
+          "Reconhecimento de voz não suportado neste navegador.";
+        return;
+      }
+
+      const reconhecimento = new SpeechRecognition();
+      reconhecimento.lang = "pt-BR";
+      reconhecimento.onresult = e => {
+        $("pergunta").value =
+          e.results[0][0].transcript;
+      };
+      reconhecimento.onerror = () => {
+        $("resposta").textContent =
+          "Não foi possível reconhecer a voz.";
+      };
+      reconhecimento.start();
+    }
+
+    function ouvirResposta() {
+      if (!("speechSynthesis" in window)) {
+        $("resposta").textContent =
+          "Leitura de voz não suportada.";
+        return;
+      }
+      speechSynthesis.cancel();
+      const fala = new SpeechSynthesisUtterance(
+        $("resposta").textContent
+      );
+      fala.lang = "pt-BR";
+      speechSynthesis.speak(fala);
+    }
+
+    function carregarTarefas() {
+      const tarefas = JSON.parse(
+        localStorage.getItem("veiga_tarefas") || "[]"
+      );
+      $("lista").replaceChildren();
+      tarefas.forEach((tarefa, i) => {
+        const li = document.createElement("li");
+        li.textContent = tarefa + " ";
+        const remover = document.createElement("button");
+        remover.textContent = "Excluir";
+        remover.onclick = () => {
+          tarefas.splice(i, 1);
+          localStorage.setItem(
+            "veiga_tarefas", JSON.stringify(tarefas)
+          );
+          carregarTarefas();
+        };
+        li.appendChild(remover);
+        $("lista").appendChild(li);
+      });
+    }
+
+    function salvarTarefa() {
+      const tarefa = $("tarefa").value.trim();
+      if (!tarefa) return;
+      const tarefas = JSON.parse(
+        localStorage.getItem("veiga_tarefas") || "[]"
+      );
+      tarefas.push(tarefa);
+      localStorage.setItem(
+        "veiga_tarefas", JSON.stringify(tarefas)
+      );
+      $("tarefa").value = "";
+      carregarTarefas();
+    }
+    carregarTarefas();
+
+    function localizar() {
+      if (!navigator.geolocation) {
+        $("local").textContent =
+          "Localização indisponível neste navegador.";
+        return;
+      }
+      $("local").textContent = "Solicitando permissão...";
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          $("local").textContent =
+            "Latitude: " + pos.coords.latitude +
+            "\nLongitude: " + pos.coords.longitude;
+        },
+        () => {
+          $("local").textContent =
+            "Não foi possível obter a localização. Verifique as permissões.";
+        },
+        { enableHighAccuracy: true, timeout: 15000 }
+      );
+    }
+  </script>
+</body>
+</html>
